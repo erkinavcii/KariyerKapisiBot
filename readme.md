@@ -26,7 +26,7 @@ Projenin çalışması için aşağıdaki Python kütüphaneleri gereklidir:
 ```text
 playwright
 requests
-python-dotenv
+python-dotenv**
 🔧 Kurulum (Yerel Bilgisayar)Botu kendi bilgisayarınızda test etmek veya çalıştırmak için:1. Depoyu KlonlayınBashgit clone [https://github.com/KULLANICI_ADINIZ/kariyer-kapisi-bot.git](https://github.com/KULLANICI_ADINIZ/kariyer-kapisi-bot.git)
 cd kariyer-kapisi-bot
 2. Gerekli Paketleri YükleyinBashpip install -r requirements.txt
@@ -35,7 +35,11 @@ cd kariyer-kapisi-bot
 TELEGRAM_CHAT_ID=123456789
 TARGET_URL=[https://kariyerkapisi.gov.tr/isealim](https://kariyerkapisi.gov.tr/isealim)
 5. Botu ÇalıştırınBashpython kariyerkapisibot.py
-📲 Telegram Bot KurulumuBildirim alabilmek için kendi botunuzu oluşturmanız gerekir. Bu işlem 1 dakika sürer:Bot Oluşturma:Telegram'da @BotFather kullanıcısını bulun./newbot komutunu gönderin.Botunuza bir isim ve kullanıcı adı verin.Size verilen API Token'ı kopyalayın (Örn: 123456:ABC-DEF...).Chat ID Öğrenme:Oluşturduğunuz bota Telegram'dan bir "Merhaba" mesajı atın.Tarayıcınızdan şu adrese gidin: https://api.telegram.org/bot<TOKENINIZ>/getUpdatesÇıkan sayfada "chat": {"id": 123456789} kısmındaki sayıyı alın.🤖 GitHub Actions ile Otomatik ÇalıştırmaBilgisayarınızı açık tutmaya gerek kalmadan, botun her gün otomatik çalışması için:Bu projeyi kendi GitHub hesabınıza Push'layın.GitHub'da reponuzun Settings > Secrets and variables > Actions sekmesine gidin.New repository secret butonuna tıklayarak aşağıdaki 4 değişkeni ekleyin:Secret AdıDeğer (Örnek)TELEGRAM_BOT_TOKEN123456:ABC-DEF...TELEGRAM_CHAT_ID987654321TARGET_URLhttps://kariyerkapisi.gov.tr/isealimDB_NAMEactive_jobs.jsonActions sekmesine gidin, sol taraftaki workflow'un çalıştığını (veya belirtilen saatte çalışacağını) kontrol edin. Bot her sabah 09:00'da (veya ayarladığınız saatte) çalışacaktır.📁 Dosya Yapısı/
+##📲 Telegram Bot Kurulumu
+Bildirim alabilmek için kendi botunuzu oluşturmanız gerekir. Bu işlem 1 dakika sürer:Bot Oluşturma:Telegram'da @BotFather kullanıcısını bulun./newbot komutunu gönderin.Botunuza bir isim ve kullanıcı adı verin.Size verilen API Token'ı kopyalayın (Örn: 123456:ABC-DEF...).Chat ID Öğrenme:Oluşturduğunuz bota Telegram'dan bir "Merhaba" mesajı atın.Tarayıcınızdan şu adrese gidin: https://api.telegram.org/bot<TOKENINIZ>/getUpdatesÇıkan sayfada "chat": {"id": 123456789} kısmındaki sayıyı alın.
+##🤖 GitHub Actions ile Otomatik Çalıştırma
+Bilgisayarınızı açık tutmaya gerek kalmadan, botun her gün otomatik çalışması için:Bu projeyi kendi GitHub hesabınıza Push'layın.GitHub'da reponuzun Settings > Secrets and variables > Actions sekmesine gidin.New repository secret butonuna tıklayarak aşağıdaki 4 değişkeni ekleyin:Secret AdıDeğer (Örnek)TELEGRAM_BOT_TOKEN123456:ABC-DEF...TELEGRAM_CHAT_ID987654321TARGET_URLhttps://kariyerkapisi.gov.tr/isealimDB_NAMEactive_jobs.jsonActions sekmesine gidin, sol taraftaki workflow'un çalıştığını (veya belirtilen saatte çalışacağını) kontrol edin. Bot her sabah 09:00'da (veya ayarladığınız saatte) çalışacaktır.
+##📁 Dosya Yapısı/
 |-- .github/workflows/
 |   |-- daily_bot.yml      # GitHub Actions zamanlayıcısı
 |-- kariyerkapisibot.py    # Ana bot kodları
@@ -43,4 +47,5 @@ TARGET_URL=[https://kariyerkapisi.gov.tr/isealim](https://kariyerkapisi.gov.tr/i
 |-- requirements.txt       # Kütüphane listesi
 |-- .gitignore             # Gizli dosyalar
 |-- README.md              # Dokümantasyon
-⚠️ Yasal UyarıBu proje eğitim ve kişisel kullanım amaçlı geliştirilmiştir. kariyerkapisi.gov.tr sitesine aşırı istek göndermekten kaçının. Varsayılan ayarlar siteye zarar vermeyecek şekilde (günde 1 kez) yapılandırılmıştır.
+
+##⚠️ Yasal UyarıBu proje eğitim ve kişisel kullanım amaçlı geliştirilmiştir. kariyerkapisi.gov.tr sitesine aşırı istek göndermekten kaçının. Varsayılan ayarlar siteye zarar vermeyecek şekilde (günde 1 kez) yapılandırılmıştır.

@@ -32,8 +32,8 @@ jobs:
           # GitHub Secrets kısmına eklediğin değişkenleri buraya çekiyoruz
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
-        # NOT: Dosya ismin 'kariyerkapisibot.py' ise burayı ona göre değiştir!
+        run: python kariyerkapisibot.py
+        
 
       - name: Veritabanını Güncelle (Git Scraping)
         run: |

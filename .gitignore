@@ -1,25 +1,16 @@
-# Environment Variables (Çok Önemli - Güvenlik)
+#envoriment
 .env
 
-# Database (Gereksiz Binary ve Veri Gizliliği)
-*.db
-*.sqlite3
-
-# Python Cache ve Derlenmiş Dosyalar
+# Python Gereksizleri
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# Virtual Environment
 venv/
 .venv/
-env/
 
-# Playwright / Browser Gereksizleri
-playwright-report/
+# Playwright Gereksizleri
 test-results/
+playwright-report/
 
-# OS Files
+# İŞLETİM SİSTEMİ ÇÖPLERİ
 .DS_Store
 Thumbs.db

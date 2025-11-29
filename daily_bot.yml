@@ -1,0 +1,51 @@
+name: Kariyer Kapisi Günlük Bot
+
+on:
+  schedule:
+    # Her gün UTC saatiyle 06:00'da çalış (Türkiye saatiyle ~09:00)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Elle tetiklemek için buton ekler (Test etmek için)
+
+permissions:
+  contents: write # JSON dosyasını güncellemek için YAZMA izni şart
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodları Çek (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Python Kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Kütüphaneleri Yükle
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Botu Çalıştır
+        env:
+          # GitHub Secrets kısmına eklediğin değişkenleri buraya çekiyoruz
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+        # NOT: Dosya ismin 'kariyerkapisibot.py' ise burayı ona göre değiştir!
+
+      - name: Veritabanını Güncelle (Git Scraping)
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          # JSON dosyasını sahneye al
+          git add active_jobs.json
+          
+          # Değişiklik varsa commit at, yoksa hata verme (|| exit 0)
+          timestamp=$(date -u)
+          git commit -m "Veritabanı güncellendi: ${timestamp}" || exit 0
+          
+          # Değişiklikleri repoya geri gönder
+          git push

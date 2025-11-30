@@ -8,10 +8,9 @@ from dotenv import load_dotenv
 
 # --- AYARLAR ---
 load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") # .env içinde bu isimle olsun
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") 
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 JSON_FILE = "active_jobs.json"
-# Hedef URL artık mecburen ana sayfa
 URL = "https://kariyerkapisi.gov.tr/isealim" 
 
 # --------------------------------------------------
@@ -33,7 +32,7 @@ def send_telegram_message(message):
 # --------------------------------------------------
 def load_saved_jobs():
     if not os.path.exists(JSON_FILE):
-        return [] # Liste olarak döndür
+        return [] 
     try:
         with open(JSON_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -50,41 +49,42 @@ def save_current_jobs(jobs_list):
 def check_jobs():
     print(f"👀 {URL} taranıyor (Playwright Mode)...")
     
-    # Eskileri yükle
     saved_jobs = load_saved_jobs()
     print(f"💾 Kayıtlı İlan Sayısı: {len(saved_jobs)}")
     
     current_jobs = []
     
     with sync_playwright() as p:
-        # GitHub Actions'ta çalışması için headless=True ŞART
         browser = p.chromium.launch(headless=True) 
         
-        # SSL hatalarını yoksay (ignore_https_errors)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            ignore_https_errors=True 
+            ignore_https_errors=True,
+            viewport={"width": 1920, "height": 1080}
         )
         page = context.new_page()
         
         try:
-            page.goto(URL, timeout=60000) 
+            # GÜNCELLEME 1: wait_until="domcontentloaded" eklendi.
+            # Bu sayede site trafiği bitmese bile HTML inince devam eder, timeout yemez.
+            page.goto(URL, timeout=60000, wait_until="domcontentloaded") 
             
             # --- POPUP SAVAR ---
-            time.sleep(4) # Sayfa kendine gelsin
+            time.sleep(3) 
             page.keyboard.press("Escape")
             try:
-                # X butonunu dener
                 if page.locator("xpath=/html/body/div[1]/div/div[1]/button").is_visible(timeout=2000):
                     page.locator("xpath=/html/body/div[1]/div/div[1]/button").click()
                 else:
-                    # Boşluğa tıklar
                     page.mouse.click(10, 10)
             except: pass
-            time.sleep(2)
+            
+            # GÜNCELLEME 2: 10 Saniye Bekleme (Senin İsteğin)
+            # Popup kapandıktan sonra ilanların listelenmesi için net bir süre bekliyoruz.
+            print("⏳ İlanların yüklenmesi için 10 saniye bekleniyor...")
+            time.sleep(10)
 
             # --- İLANLARI TOPLA ---
-            # Sadece 'IlanDetay' linki olan butonları bul
             job_buttons = page.locator("a[href*='IlanDetay']").all()
             print(f"✅ Sitede Bulunan İlan: {len(job_buttons)}")
             
@@ -95,29 +95,21 @@ def check_jobs():
                     
                     full_link = f"https://kariyerkapisi.gov.tr/{href}"
                     
-                    # İçeriği Analiz Et (Akıllı Parsing)
-                    # Butonun bulunduğu satırı (Grandparent) al
                     row = btn.locator("xpath=../..")
                     full_text = row.inner_text()
-                    
-                    # Satırları temizle
                     lines = [line.strip() for line in full_text.split('\n') if len(line.strip()) > 2]
                     
                     if not lines: continue
 
-                    # 1. Kurum (Genelde ilk satır)
                     kurum = lines[0]
-                    
-                    # 2. Başlık (En uzun satır stratejisi)
                     possible_titles = [l for l in lines if "İlana Git" not in l and "İlan" not in l[:5]]
                     baslik = max(possible_titles, key=len) if possible_titles else (lines[1] if len(lines)>1 else "Başlık Yok")
 
-                    # Listeye ekle
                     current_jobs.append({
-                        "url": full_link, # Eşsiz anahtar
+                        "url": full_link,
                         "kurum": kurum,
                         "baslik": baslik,
-                        "date": datetime.now().strftime("%Y-%m-%d") # Sitede tarih parsing zor ise bugünü at
+                        "date": datetime.now().strftime("%Y-%m-%d")
                     })
                         
                 except Exception:
@@ -125,12 +117,11 @@ def check_jobs():
 
         except Exception as e:
             print(f"❌ Kritik Hata: {e}")
-            # Hata varsa boş liste dönecek, bu da aşağıda kaydı sıfırlayacak (İstediğin Risk Modu)
             current_jobs = [] 
         finally:
             browser.close()
 
-    # --- KARŞILAŞTIRMA (URL Bazlı Diff) ---
+    # --- KARŞILAŞTIRMA ---
     saved_urls = {job["url"] for job in saved_jobs}
     
     new_items = []
@@ -157,8 +148,7 @@ def check_jobs():
     else:
         print("💤 Yeni ilan yok.")
 
-    # --- KAYDETME (RİSK MODU) ---
-    # Liste boş olsa bile kaydet. Bir sonraki çalışmada her şeyi yeni sanacak.
+    # --- KAYDETME (RİSK MODU AÇIK) ---
     save_current_jobs(current_jobs)
     print("✔ JSON güncellendi.")
 

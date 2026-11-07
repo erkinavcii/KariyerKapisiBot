@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Elle tetiklemek için buton ekler (Test etmek için)
 
 permissions:
-  contents: write # JSON dosyasını güncellemek için YAZMA izni şart
+  contents: write # seen_jobs.json dosyasını güncellemek için YAZMA izni şart
 
 jobs:
   run-bot:
@@ -21,31 +21,27 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Kütüphaneleri Yükle
-        run: |
-          pip install -r requirements.txt
-          playwright install chromium
+        run: pip install -r requirements.txt
 
       - name: Botu Çalıştır
         env:
-          # GitHub Secrets kısmına eklediğin değişkenleri buraya çekiyoruz
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python kariyerkapisibot.py
-        
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ADAY_PROFILI: ${{ secrets.ADAY_PROFILI }}
+          DOGUM_YILI: ${{ secrets.DOGUM_YILI }}
+        # Birden fazla mod istersen satır ekle, ör. ikinci satır: python kariyerkapisibot.py --mod duz
+        # (her mod kendi seen_jobs_<mod>.json dosyasını tutar; ayrı sohbet için TELEGRAM_CHAT_ID_DUZ vb.)
+        run: |
+          python kariyerkapisibot.py
 
-      - name: Veritabanını Güncelle (Git Scraping)
+      - name: Durumu Güncelle (Git Scraping)
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          
-          # JSON dosyasını sahneye al
-          git add active_jobs.json
-          
-          # Değişiklik varsa commit at, yoksa hata verme (|| exit 0)
-          timestamp=$(date -u)
-          git commit -m "Veritabanı güncellendi: ${timestamp}" || exit 0
-          
-          # Değişiklikleri repoya geri gönder
+          git add seen_jobs_*.json
+          git commit -m "Durum güncellendi: $(date -u)" || exit 0
           git push

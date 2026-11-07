@@ -1,0 +1,29 @@
+{
+  "_mod_aciklama": "duz: filtresiz, her yeni ilan | kural: anahtar kelime + yaş/dil uyarısı, LLM yok | llm: Claude ile uygunluk (anahtar/profil yoksa kural'a düşer)",
+  "mod": "kural",
+  "kural_filtre": {
+    "_aciklama": "İlan başlığı + tam metin + alt ilanlarda aranır (büyük/küçük harf duyarsız, kök hali yeterli). dogum_yili boşsa DOGUM_YILI ortam değişkeni kullanılır.",
+    "anahtar_kelimeler": ["bilgisayar mühendis", "yazılım mühendis", "yazılım geliştir", "yönetim bilişim", "bilişim personel"],
+    "dogum_yili": null,
+    "yabanci_dil_yok": true
+  },
+  "on_filtre": {
+    "_aciklama": "LLM'e gitmeden ücretsiz eleme. Boş liste = kısıt yok. Eşleşme büyük/küçük harf duyarsız 'içerir' kontrolüdür. Örnek ilan türleri: 'A Grubu Memur', 'B Grubu Memur', 'Sözleşmeli Personel', 'İşçi İlanları', 'Hakim ve Savcı', 'Görevde Yükselme', 'Yurt Dışı Eğitim', 'Öğretim Üyesi', 'Öğretim Görevlisi', 'Araştırma Görevlisi', 'Askeri Personel', 'Sürekli İşçi', 'Geçici İşçi', 'Engelli İşçi', 'Eski Hükümlü İşçi', 'Yeterlik Sınavı'.",
+    "haric_ilan_turleri": [],
+    "dahil_ilan_turleri": [],
+    "haric_baslik_kelimeleri": [],
+    "zorunlu_baslik_kelimeleri": []
+  },
+  "llm": {
+    "_aciklama": "model: claude-haiku-5-5 (ucuz, ~$0.0006/ilan) | claude-sonnet-5-5 (~$0.012/ilan) | claude-opus-5-5 (~$0.024/ilan).",
+    "model": "claude-haiku-5-5",
+    "effort": "low",
+    "calisma_basina_max_ilan": 60,
+    "calisma_basina_max_usd": 0.5
+  },
+  "bildirim": {
+    "_aciklama": "gonderilecek_kararlar: uygun | belirsiz | uygun_degil",
+    "gonderilecek_kararlar": ["uygun", "belirsiz"],
+    "ozet_gonder": true
+  }
+}

@@ -98,12 +98,12 @@ bu yüzden bot yerel bilgisayarda çalışır. `.env` dosyasına `TELEGRAM_*` (v
 LLM modu için API anahtarı) yazıldıktan sonra proje klasöründe bir kez:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File gorev_kur.ps1            # her gün 09:00
-powershell -ExecutionPolicy Bypass -File gorev_kur.ps1 -Saat 08:30
+powershell -ExecutionPolicy Bypass -File gorev_kur.ps1            # her gün 15:00
+powershell -ExecutionPolicy Bypass -File gorev_kur.ps1 -Saat 09:00
 ```
 
 - Görev `calistir.ps1`'i çağırır; çıktı `logs/bot_YYYY-MM.log` dosyasına eklenir.
-- Bilgisayar 09:00'da kapalıysa görev açılışta çalışır; internet yoksa beklenir.
+- Bilgisayar 15:00'te kapalıysa görev açılışta çalışır; internet yoksa beklenir.
 - Site erişilemezse Telegram'a uyarı gelir, kayıtlar (`seen_jobs_<mod>.json`, yerelde, git dışı) korunur.
 - Hemen denemek: `Start-ScheduledTask -TaskName KariyerKapisiBot` · Kaldırmak:
   `Unregister-ScheduledTask -TaskName KariyerKapisiBot -Confirm:$false`

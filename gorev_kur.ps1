@@ -1,11 +1,11 @@
 # Windows Gorev Zamanlayici'ya "KariyerKapisiBot" gorevini ekler (veya gunceller).
 # Her gun saat $Saat'te calisir; bilgisayar o saatte kapaliysa acildiginda calisir.
 # Kullanim (proje klasorunde):
-#   powershell -ExecutionPolicy Bypass -File gorev_kur.ps1            # 09:00
-#   powershell -ExecutionPolicy Bypass -File gorev_kur.ps1 -Saat 08:30
+#   powershell -ExecutionPolicy Bypass -File gorev_kur.ps1            # 15:00
+#   powershell -ExecutionPolicy Bypass -File gorev_kur.ps1 -Saat 09:00
 # Kaldirmak icin:
 #   Unregister-ScheduledTask -TaskName KariyerKapisiBot -Confirm:$false
-param([string]$Saat = '09:00')
+param([string]$Saat = '15:00')
 
 $dir = $PSScriptRoot
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' `

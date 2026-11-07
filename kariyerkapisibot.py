@@ -121,17 +121,17 @@ def main() -> int:
     llm = None
     if mod == "llm":
         profil = profil_oku()
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            print("⚠️ ANTHROPIC_API_KEY yok; 'kural' moduna geçiliyor.")
-            mod = "kural"
-        elif profil is None:
+        if profil is None:
             print("⚠️ Profil yok ya da doldurulmamış (profil.md / ADAY_PROFILI); 'kural' moduna geçiliyor.")
             mod = "kural"
         else:
-            from kariyerbot.llm_filtre import LLMFiltre
-            llm = LLMFiltre(profil, model=llm_ayar.get("model", "claude-haiku-5-5"),
-                            effort=llm_ayar.get("effort", "low"))
-            print(f"🤖 LLM filtresi: {llm.model} (effort={llm.effort})")
+            from kariyerbot.llm_filtre import filtre_olustur
+            llm, sebep = filtre_olustur(profil, llm_ayar)
+            if llm is None:
+                print(f"⚠️ LLM kurulamadı ({sebep}); 'kural' moduna geçiliyor.")
+                mod = "kural"
+            else:
+                print(f"🤖 LLM filtresi: {llm.model} (effort/düşünme={llm.effort})")
     kural_ayar = ayar.get("kural_filtre", {})
     dogum_yili = os.getenv("DOGUM_YILI") or kural_ayar.get("dogum_yili")
     dogum_yili = int(dogum_yili) if dogum_yili else None
@@ -201,7 +201,7 @@ def main() -> int:
               + (f"  [hata: {d.hata}]" if d.hata else ""))
 
         if d.karar in gonderilecek:
-            if not tg.gonder(ilan_mesaji(ilan, link, d.karar, d)):
+            if not tg.gonder(ilan_mesaji(ilan, link, d.karar, d, ekler=ekler)):
                 print("  ⚠️ Bildirim gönderilemedi; ilan sonraki çalışmada tekrar denenecek.")
                 continue
             sayac["bildirildi"] += 1

@@ -3,7 +3,7 @@
   "mod": "kural",
   "kural_filtre": {
     "_aciklama": "İlan başlığı + tam metin + alt ilanlarda aranır (büyük/küçük harf duyarsız, kök hali yeterli). dogum_yili boşsa DOGUM_YILI ortam değişkeni kullanılır.",
-    "anahtar_kelimeler": ["bilgisayar mühendis", "yazılım mühendis", "yazılım geliştir", "yönetim bilişim", "bilişim personel"],
+    "anahtar_kelimeler": ["bilgisayar mühendis", "yazılım mühendis", "yazılım geliştir", "bilişim sistemleri", "bilişim personel", "bilgisayar programc"],
     "dogum_yili": null,
     "yabanci_dil_yok": true
   },
@@ -15,9 +15,18 @@
     "zorunlu_baslik_kelimeleri": []
   },
   "llm": {
-    "_aciklama": "model: claude-haiku-5-5 (ucuz, ~$0.0006/ilan) | claude-sonnet-5-5 (~$0.012/ilan) | claude-opus-5-5 (~$0.024/ilan).",
-    "model": "claude-haiku-5-5",
-    "effort": "low",
+    "_aciklama": "saglayici: anthropic (ANTHROPIC_API_KEY) | deepseek (DEEPSEEK_API_KEY, OpenAI uyumlu API). Ilan başı yaklaşık: claude-haiku-5-5 ~$0.001, deepseek-flash ~$0.0012 (yoğun dışı) / ~$0.0023 (yoğun saat), deepseek-v4-pro ~$0.005-0.01, claude-sonnet-5-5 ~$0.02. PDF ekler hiçbir sağlayıcıya gönderilmez.",
+    "saglayici": "anthropic",
+    "anthropic": {
+      "model": "claude-haiku-5-5",
+      "effort": "low"
+    },
+    "deepseek": {
+      "_aciklama": "model: deepseek-flash | deepseek-v4-pro. dusunme=true daha isabetli ama çıktı tokenı (maliyet) artar; effort: low | high | max.",
+      "model": "deepseek-flash",
+      "dusunme": false,
+      "effort": "low"
+    },
     "calisma_basina_max_ilan": 60,
     "calisma_basina_max_usd": 0.5
   },

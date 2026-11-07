@@ -29,7 +29,7 @@ tutar; istersen birden fazlasını aynı anda (ayrı Telegram sohbetlerine: `TEL
 |---|---|---|
 | `duz` | Filtre yok, her yeni ilan gider (eski davranış) | 0 |
 | `kural` (varsayılan) | Ön filtre + ilan metninde anahtar kelime; yaş sınırı, yabancı dil puan şartı ve KPSS puan türü için uyarı | 0 |
-| `llm` | Ön filtre + Claude ile profile göre uygun / belirsiz / uygun değil kararı | ~$0.001/ilan |
+| `llm` | Ön filtre + LLM ile profile göre uygun / belirsiz / uygun değil kararı. Sağlayıcı `ayarlar.json` → `llm.saglayici`: `anthropic` (Claude) ya da `deepseek` (OpenAI uyumlu API) | ~$0.001–0.002/ilan |
 
 `llm` modunda API anahtarı ya da profil yoksa bot otomatik olarak `kural` moduna düşer.
 
@@ -100,6 +100,7 @@ Settings → Secrets and variables → Actions altında şu secret'ları ekle:
 | `TELEGRAM_BOT_TOKEN` | BotFather token'ı |
 | `TELEGRAM_CHAT_ID` | Mesajın gideceği sohbet |
 | `ANTHROPIC_API_KEY` | Claude API anahtarı |
+| `DEEPSEEK_API_KEY` | (sadece `saglayici: deepseek` ise) DeepSeek API anahtarı |
 | `ADAY_PROFILI` | `profil.md`'nin tüm içeriği (profil repoya girmesin diye) |
 | `DOGUM_YILI` | (isteğe bağlı) kural modunda yaş sınırı uyarısı için, ör. 1999 |
 
@@ -107,6 +108,7 @@ Bot her gün 09:00 (TR) civarında çalışır; site/API hatasında durum dosyas
 
 ## Bilinen sınırlar
 
-- Bazı ilanlarda kabul edilen bölümler PDF ek tablolarda; bu içerik modele gitmez. Model bu durumda
-  "🟡 KONTROL ET" der ve ek linkleri mesajda belirtir.
+- Bazı ilanlarda kabul edilen bölümler PDF ek tablolarda. PDF'ler maliyet yüzünden hiçbir modele
+  gönderilmez; her mesajda "📎 PDF ek şartname/tablo var" satırı ve linkleri bulunur, LLM modu da bu
+  durumda "🟡 KONTROL ET" der.
 - "Duyuru" tipindeki ilanların sitede metni yok (sadece dış link); bunlar başlıktan değerlendirilir.

@@ -50,7 +50,17 @@ _ROZET = {"uygun": "✅ UYGUN", "belirsiz": "🟡 KONTROL ET", "uygun_degil": "�
           "eslesti": "🔎 ANAHTAR KELİME EŞLEŞTİ", None: "📢 YENİ İLAN"}
 
 
-def ilan_mesaji(ilan: dict, link: str, karar: str | None, d=None) -> str:
+def _ek_satiri(ekler: list[str]) -> str | None:
+    pdf = [x for x in ekler if x.lower().split("?")[0].endswith(".pdf")]
+    if not ekler:
+        return None
+    adlar = ", ".join(f'<a href="{e(x)}">{e(x.rsplit("/", 1)[-1][:40])}</a>' for x in (pdf or ekler)[:4])
+    fazla = f" +{len(pdf or ekler) - 4}" if len(pdf or ekler) > 4 else ""
+    tur = "PDF ek şartname/tablo" if pdf else "ek link"
+    return f"📎 {len(pdf or ekler)} {tur} var (bot okumadı, şartlar burada olabilir): {adlar}{fazla}"
+
+
+def ilan_mesaji(ilan: dict, link: str, karar: str | None, d=None, ekler: list[str] | None = None) -> str:
     satirlar = [
         f"<b>{_ROZET.get(karar, karar)}</b>",
         f"🏢 <b>{e(ilan.get('kurumAdi'))}</b>",
@@ -73,5 +83,7 @@ def ilan_mesaji(ilan: dict, link: str, karar: str | None, d=None) -> str:
             satirlar.append("⚠️ " + e("; ".join(d.eksik_veya_belirsiz_sartlar)))
         if d.hata:
             satirlar.append("🛠 LLM: " + e(d.hata))
+    if (ek := _ek_satiri(ekler or getattr(d, "ekler", None) or [])):
+        satirlar.append(ek)
     satirlar.append(f"🔗 <a href=\"{e(link)}\">İlana git</a>")
     return "\n".join(satirlar)

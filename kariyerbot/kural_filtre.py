@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .metin import temizle, tr_lower
+from .metin import ekleri_bul, temizle, tr_lower
 
 _YAS = re.compile(r"(\d{2})\s*(?:\(\s*[^)]{0,20}\)\s*)?yaşını\s*(?:doldurmamış|tamamlamamış|bitirmemiş)",
                   re.I)
@@ -29,6 +29,7 @@ class KuralSonucu:
     eslesen_kelimeler: list[str] = field(default_factory=list)
     uyarilar: list[str] = field(default_factory=list)
     ornek: str = ""
+    ekler: list[str] = field(default_factory=list)
 
 
 def _tam_metin(ilan: dict, detay: dict, altlar: list[dict]) -> str:
@@ -73,5 +74,9 @@ def kural_degerlendir(ilan: dict, detay: dict, altlar: list[dict], ayar: dict,
     if puan_turleri:
         uyarilar.append("KPSS puan türü: " + ", ".join(puan_turleri))
 
+    ekler = ekleri_bul(detay.get("ilanMetni") or "")
+    for a in altlar:
+        ekler += ekleri_bul(a.get("ilanMetni") or "")
     return KuralSonucu(eslesti=True, eslesen_kelimeler=eslesen, uyarilar=uyarilar,
-                       ornek=_ornek(metin, kucuk, eslesen[0]) if eslesen else "")
+                       ornek=_ornek(metin, kucuk, eslesen[0]) if eslesen else "",
+                       ekler=list(dict.fromkeys(ekler)))

@@ -31,6 +31,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ADAY_PROFILI: ${{ secrets.ADAY_PROFILI }}
           DOGUM_YILI: ${{ secrets.DOGUM_YILI }}
         # Birden fazla mod istersen satır ekle, ör. ikinci satır: python kariyerkapisibot.py --mod duz

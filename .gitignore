@@ -14,3 +14,10 @@ playwright-report/
 # İŞLETİM SİSTEMİ ÇÖPLERİ
 .DS_Store
 Thumbs.db
+
+# Kişisel profil (Actions için ADAY_PROFILI secret kullan)
+profil.md
+
+# Eski sürümün yerel veritabanı
+kariyer_kapisi.db
+*.tmp

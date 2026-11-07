@@ -1,156 +1,235 @@
+"""Kariyer Kapısı ilan botu.
+
+Modlar (ayarlar.json "mod" ya da --mod):
+  duz   : filtre yok, her yeni ilan Telegram'a
+  kural : ön filtre + ilan metninde anahtar kelime, yaş/dil uyarıları (LLM yok, ücretsiz)
+  llm   : ön filtre + Claude ile profile uygunluk; uygun/belirsiz olanlar Telegram'a
+
+Kullanım:
+  python kariyerkapisibot.py                 # normal çalışma
+  python kariyerkapisibot.py --dry-run       # Telegram'a atmaz, durumu kaydetmez
+  python kariyerkapisibot.py --mod kural     # modu bu çalışma için değiştir (duz/kural/llm)
+  python kariyerkapisibot.py --guid <GUID>   # tek ilanı test et (durumu yok sayar, kaydetmez)
+  python kariyerkapisibot.py --limit 3       # bu çalışmada en fazla 3 yeni ilan işle
+  python kariyerkapisibot.py --sadece-kaydet # mevcut ilanları bildirmeden 'görüldü' işaretle
+"""
+
+from __future__ import annotations
+
+import argparse
 import json
 import os
-import time
-import requests
-from playwright.sync_api import sync_playwright
+import sys
 from datetime import datetime
+
 from dotenv import load_dotenv
 
-# --- AYARLAR ---
-load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") 
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-JSON_FILE = "active_jobs.json"
-URL = "https://kariyerkapisi.gov.tr/isealim" 
+from kariyerbot import durum as durum_mod
+from kariyerbot.kk_api import KariyerKapisiClient, KariyerKapisiHatasi, ilan_linki
+from kariyerbot.kural_filtre import kural_degerlendir
+from kariyerbot.metin import llm_girdisi
+from kariyerbot.on_filtre import on_filtre
+from kariyerbot.telegram import Telegram, e, ilan_mesaji
 
-# --------------------------------------------------
-# Telegram Fonksiyonu
-# --------------------------------------------------
-def send_telegram_message(message):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("⚠️ Token eksik, mesaj atılmadı.")
-        return
-    
-    send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+KOK = os.path.dirname(os.path.abspath(__file__))
+AYAR_DOSYASI = os.path.join(KOK, "ayarlar.json")
+PROFIL_DOSYASI = os.path.join(KOK, "profil.md")
+MODLAR = ("duz", "kural", "llm")
+DOLDURULMADI_ISARETI = "<DOLDUR>"
+
+
+def argumanlar():
+    p = argparse.ArgumentParser(description="Kariyer Kapısı ilan botu")
+    p.add_argument("--dry-run", action="store_true", help="Telegram'a atma, durumu kaydetme")
+    p.add_argument("--mod", choices=MODLAR, help="Çalışma modu (varsayılan: ayarlar.json)")
+    p.add_argument("--no-llm", action="store_true", help="--mod kural ile aynı")
+    p.add_argument("--guid", help="Sadece bu ilanı işle (test)")
+    p.add_argument("--limit", type=int, help="Bu çalışmada işlenecek en fazla yeni ilan")
+    p.add_argument("--sadece-kaydet", action="store_true",
+                   help="Mevcut ilanları bildirim göndermeden görüldü olarak işaretle")
+    return p.parse_args()
+
+
+def profil_oku() -> str | None:
+    """Önce ADAY_PROFILI ortam değişkeni (GitHub secret), yoksa yerel profil.md (git dışı)."""
+    metin = os.getenv("ADAY_PROFILI")
+    if not metin and os.path.exists(PROFIL_DOSYASI):
+        with open(PROFIL_DOSYASI, "r", encoding="utf-8") as f:
+            metin = f.read()
+    if not metin or DOLDURULMADI_ISARETI in metin:
+        return None
+    return metin
+
+
+def main() -> int:
+    load_dotenv()
+    a = argumanlar()
+    with open(AYAR_DOSYASI, "r", encoding="utf-8") as f:
+        ayar = json.load(f)
+    llm_ayar = ayar.get("llm", {})
+    bildirim_ayar = ayar.get("bildirim", {})
+
+    mod = a.mod or ("kural" if a.no_llm else ayar.get("mod", "llm"))
+    if mod not in MODLAR:
+        print(f"❌ Geçersiz mod: {mod} (seçenekler: {', '.join(MODLAR)})")
+        return 2
+
+    kuru = a.dry_run or bool(a.guid)
+    # Her modun kendi sohbeti olabilir: TELEGRAM_CHAT_ID_DUZ / _KURAL / _LLM, yoksa TELEGRAM_CHAT_ID.
+    chat_id = os.getenv(f"TELEGRAM_CHAT_ID_{mod.upper()}") or os.getenv("TELEGRAM_CHAT_ID")
+    tg = Telegram(os.getenv("TELEGRAM_BOT_TOKEN"), chat_id, kuru=kuru)
+    # Modlar ayrı durum dosyası tutar; böylece birden fazla mod aynı anda çalışabilir.
+    DURUM_DOSYASI = os.path.join(KOK, f"seen_jobs_{mod}.json")
+    durum = durum_mod.yukle(DURUM_DOSYASI)
+    kk = KariyerKapisiClient()
+
+    # 1) Aktif ilanlar. Site/API hatasında durum dosyasına dokunmadan çık.
     try:
-        requests.post(send_url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"})
-    except Exception as e:
-        print(f"Telegram Hatası: {e}")
+        ilanlar = kk.aktif_ilanlar()
+    except KariyerKapisiHatasi as ex:
+        print(f"❌ İlan listesi alınamadı: {ex}")
+        return 1
+    print(f"✅ Sitede {len(ilanlar)} aktif ilan, kayıtta {len(durum)} ilan var.")
 
-# --------------------------------------------------
-# JSON İşlemleri
-# --------------------------------------------------
-def load_saved_jobs():
-    if not os.path.exists(JSON_FILE):
-        return [] 
-    try:
-        with open(JSON_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_current_jobs(jobs_list):
-    with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(jobs_list, f, ensure_ascii=False, indent=2)
-
-# --------------------------------------------------
-# ANA SCRAPER (PLAYWRIGHT)
-# --------------------------------------------------
-def check_jobs():
-    print(f"👀 {URL} taranıyor (Playwright Mode)...")
-    
-    saved_jobs = load_saved_jobs()
-    print(f"💾 Kayıtlı İlan Sayısı: {len(saved_jobs)}")
-    
-    current_jobs = []
-    
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True) 
-        
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            ignore_https_errors=True,
-            viewport={"width": 1920, "height": 1080}
-        )
-        page = context.new_page()
-        
-        try:
-            # GÜNCELLEME 1: wait_until="domcontentloaded" eklendi.
-            # Bu sayede site trafiği bitmese bile HTML inince devam eder, timeout yemez.
-            page.goto(URL, timeout=60000, wait_until="domcontentloaded") 
-            
-            # --- POPUP SAVAR ---
-            time.sleep(3) 
-            page.keyboard.press("Escape")
-            try:
-                if page.locator("xpath=/html/body/div[1]/div/div[1]/button").is_visible(timeout=2000):
-                    page.locator("xpath=/html/body/div[1]/div/div[1]/button").click()
-                else:
-                    page.mouse.click(10, 10)
-            except: pass
-            
-            # GÜNCELLEME 2: 10 Saniye Bekleme (Senin İsteğin)
-            # Popup kapandıktan sonra ilanların listelenmesi için net bir süre bekliyoruz.
-            print("⏳ İlanların yüklenmesi için 10 saniye bekleniyor...")
-            time.sleep(10)
-
-            # --- İLANLARI TOPLA ---
-            job_buttons = page.locator("a[href*='IlanDetay']").all()
-            print(f"✅ Sitede Bulunan İlan: {len(job_buttons)}")
-            
-            for btn in job_buttons:
-                try:
-                    href = btn.get_attribute("href")
-                    if not href or "i=" not in href: continue
-                    
-                    full_link = f"https://kariyerkapisi.gov.tr/{href}"
-                    
-                    row = btn.locator("xpath=../..")
-                    full_text = row.inner_text()
-                    lines = [line.strip() for line in full_text.split('\n') if len(line.strip()) > 2]
-                    
-                    if not lines: continue
-
-                    kurum = lines[0]
-                    possible_titles = [l for l in lines if "İlana Git" not in l and "İlan" not in l[:5]]
-                    baslik = max(possible_titles, key=len) if possible_titles else (lines[1] if len(lines)>1 else "Başlık Yok")
-
-                    current_jobs.append({
-                        "url": full_link,
-                        "kurum": kurum,
-                        "baslik": baslik,
-                        "date": datetime.now().strftime("%Y-%m-%d")
-                    })
-                        
-                except Exception:
-                    continue
-
-        except Exception as e:
-            print(f"❌ Kritik Hata: {e}")
-            current_jobs = [] 
-        finally:
-            browser.close()
-
-    # --- KARŞILAŞTIRMA ---
-    saved_urls = {job["url"] for job in saved_jobs}
-    
-    new_items = []
-    for job in current_jobs:
-        if job["url"] not in saved_urls:
-            new_items.append(job)
-
-    # --- BİLDİRİM ---
-    if new_items:
-        print(f"📢 {len(new_items)} yeni ilan bulundu!")
-        
-        batch_size = 10
-        for i in range(0, len(new_items), batch_size):
-            batch = new_items[i : i + batch_size]
-            msg = f"📢 <b>YENİ İLAN RAPORU ({i+1} - {i+len(batch)})</b>\n\n"
-            for job in batch:
-                msg += f"🏢 <b>{job['kurum']}</b>\n"
-                msg += f"💼 {job['baslik']}\n"
-                msg += f"🔗 <a href='{job['url']}'>İlana Git</a>\n"
-                msg += "-------------------------\n"
-            
-            send_telegram_message(msg)
-            time.sleep(1)
+    if a.guid:
+        yeni = [i for i in ilanlar if i["guid"] == a.guid]
+        if not yeni:
+            print("Bu GUID aktif listede yok.")
+            return 1
     else:
-        print("💤 Yeni ilan yok.")
+        yeni = [i for i in ilanlar if i["guid"] not in durum]
+    yeni.sort(key=lambda i: i.get("bitTarih") or "9999")  # son başvurusu yakın olan önce
+    print(f"🆕 Yeni ilan: {len(yeni)}")
 
-    # --- KAYDETME (RİSK MODU AÇIK) ---
-    save_current_jobs(current_jobs)
-    print("✔ JSON güncellendi.")
+    bugun = datetime.now().strftime("%Y-%m-%d")
+
+    def isaretle(ilan, karar, **ek):
+        durum[ilan["guid"]] = {
+            "kurum": ilan.get("kurumAdi"), "baslik": ilan.get("ilanBaslik"),
+            "bitTarih": ilan.get("bitTarih"), "ilk_gorulme": bugun, "karar": karar, **ek,
+        }
+
+    if a.sadece_kaydet:
+        for ilan in yeni:
+            isaretle(ilan, "atlandi")
+        if not a.dry_run:
+            durum_mod.kaydet(DURUM_DOSYASI, durum)
+        print(f"✔ {len(yeni)} ilan bildirim gönderilmeden kaydedildi.")
+        return 0
+
+    # 2) LLM modu istendiyse kullanılabilir mi? Değilse kural moduna düş.
+    llm = None
+    if mod == "llm":
+        profil = profil_oku()
+        if profil is None:
+            print("⚠️ Profil yok ya da doldurulmamış (profil.md / ADAY_PROFILI); 'kural' moduna geçiliyor.")
+            mod = "kural"
+        else:
+            from kariyerbot.llm_filtre import filtre_olustur
+            llm, sebep = filtre_olustur(profil, llm_ayar)
+            if llm is None:
+                print(f"⚠️ LLM kurulamadı ({sebep}); 'kural' moduna geçiliyor.")
+                mod = "kural"
+            else:
+                print(f"🤖 LLM filtresi: {llm.model} (effort/düşünme={llm.effort})")
+    kural_ayar = ayar.get("kural_filtre", {})
+    dogum_yili = os.getenv("DOGUM_YILI") or kural_ayar.get("dogum_yili")
+    dogum_yili = int(dogum_yili) if dogum_yili else None
+    print(f"⚙️ Mod: {mod}")
+
+    # 3) Bu çalışmanın üst sınırları (maliyet koruması)
+    limit = a.limit or llm_ayar.get("calisma_basina_max_ilan", 60)
+    max_usd = float(llm_ayar.get("calisma_basina_max_usd", 0.50))
+    if mod == "llm" and len(yeni) > limit:
+        print(f"⚠️ {len(yeni)} yeni ilandan ilk {limit} tanesi işlenecek, kalanlar sonraki çalışmaya.")
+        yeni = yeni[:limit]
+    elif a.limit:
+        yeni = yeni[: a.limit]
+
+    gonderilecek = set(bildirim_ayar.get("gonderilecek_kararlar", ["uygun", "belirsiz"]))
+    sayac = {"uygun": 0, "belirsiz": 0, "uygun_degil": 0, "on_filtre": 0, "bildirildi": 0,
+             "eslesti": 0, "eslesmedi": 0}
+
+    for ilan in yeni:
+        link = ilan_linki(ilan)
+
+        # --- düz mod: filtre yok, her yeni ilan gider ---
+        if mod == "duz":
+            if tg.gonder(ilan_mesaji(ilan, link, None)):
+                sayac["bildirildi"] += 1
+                isaretle(ilan, "bildirildi")
+            continue
+
+        gecti, sebep = on_filtre(ilan, ayar.get("on_filtre", {}))
+        if not gecti:
+            sayac["on_filtre"] += 1
+            print(f"  ⏭ {ilan['ilanBaslik'][:70]} — {sebep}")
+            isaretle(ilan, "on_filtre", sebep=sebep)
+            continue
+
+        if llm is not None and llm.toplam_maliyet >= max_usd:
+            print(f"⚠️ Çalışma maliyet sınırı (${max_usd}) aşıldı; kalanlar sonraki çalışmaya.")
+            break
+
+        try:
+            detay = kk.ilan_detay(ilan["guid"])
+            altlar = kk.alt_ilanlar(ilan["guid"])
+        except KariyerKapisiHatasi as ex:
+            print(f"  ⚠️ Detay alınamadı, sonraki çalışmada denenecek: {ex}")
+            continue
+
+        # --- kural modu: anahtar kelime + yaş/dil uyarıları, LLM yok ---
+        if mod == "kural":
+            k = kural_degerlendir(ilan, detay, altlar, kural_ayar, dogum_yili)
+            karar = "eslesti" if k.eslesti else "eslesmedi"
+            sayac[karar] += 1
+            print(f"  {karar:10s} {ilan['ilanBaslik'][:70]}"
+                  + (f"  [{', '.join(k.eslesen_kelimeler)}]" if k.eslesti else ""))
+            if k.eslesti:
+                if not tg.gonder(ilan_mesaji(ilan, link, "eslesti", k)):
+                    print("  ⚠️ Bildirim gönderilemedi; ilan sonraki çalışmada tekrar denenecek.")
+                    continue
+                sayac["bildirildi"] += 1
+            isaretle(ilan, karar)
+            continue
+
+        # --- llm modu ---
+        girdi, ekler = llm_girdisi(ilan, detay, altlar)
+        d = llm.degerlendir(girdi)
+        sayac[d.karar] += 1
+        print(f"  {d.karar:12s} ${d.maliyet_usd:.5f}  {ilan['ilanBaslik'][:70]}"
+              + (f"  [hata: {d.hata}]" if d.hata else ""))
+
+        if d.karar in gonderilecek:
+            if not tg.gonder(ilan_mesaji(ilan, link, d.karar, d, ekler=ekler)):
+                print("  ⚠️ Bildirim gönderilemedi; ilan sonraki çalışmada tekrar denenecek.")
+                continue
+            sayac["bildirildi"] += 1
+        # Gerekçe profil detayı içerebilir; repoya commit'lenen durum dosyasına yazılmaz.
+        isaretle(ilan, d.karar, hata=d.hata)
+
+    # 4) Özet
+    if yeni and bildirim_ayar.get("ozet_gonder", True):
+        satir = [f"📊 <b>Kariyer Kapısı özeti</b> ({e(bugun)}, mod: {e(mod)})",
+                 f"Yeni ilan: {len(yeni)} | Ön filtrede elenen: {sayac['on_filtre']}"]
+        if mod == "kural":
+            satir.append(f"🔎 Eşleşen: {sayac['eslesti']} | Eşleşmeyen: {sayac['eslesmedi']}")
+        if llm:
+            satir.append(f"✅ {sayac['uygun']}  🟡 {sayac['belirsiz']}  ❌ {sayac['uygun_degil']}")
+            satir.append(f"💰 LLM maliyeti: ${llm.toplam_maliyet:.4f} "
+                         f"({llm.toplam_girdi:,} girdi / {llm.toplam_cikti:,} çıktı token)")
+        tg.gonder("\n".join(satir))
+
+    silinen = durum_mod.suresi_gecenleri_sil(durum)
+    if kuru:
+        print("ℹ️ Kuru çalışma: durum dosyası kaydedilmedi.")
+    else:
+        durum_mod.kaydet(DURUM_DOSYASI, durum)
+        print(f"✔ Durum kaydedildi ({len(durum)} kayıt, {silinen} eski kayıt silindi).")
+    if llm:
+        print(f"💰 Toplam LLM maliyeti: ${llm.toplam_maliyet:.4f}")
+    return 0
+
 
 if __name__ == "__main__":
-    check_jobs()
+    sys.exit(main())

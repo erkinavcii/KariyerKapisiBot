@@ -91,7 +91,24 @@ python kariyerkapisibot.py                       # normal çalışma
 
 `ANTHROPIC_API_KEY` ya da doldurulmuş profil yoksa bot LLM'siz çalışır ve ön filtreden geçen her yeni ilanı bildirir.
 
-## GitHub Actions
+## Yerel zamanlanmış çalışma (Windows Görev Zamanlayıcı)
+
+kariyerkapisi.gov.tr, 13 Aralık 2025'ten beri GitHub'ın barındırılan (yurt dışı) sunucularından erişilemiyor;
+bu yüzden bot yerel bilgisayarda çalışır. `.env` dosyasına `TELEGRAM_*` (ve isteğe bağlı `DOGUM_YILI`,
+LLM modu için API anahtarı) yazıldıktan sonra proje klasöründe bir kez:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File gorev_kur.ps1            # her gün 09:00
+powershell -ExecutionPolicy Bypass -File gorev_kur.ps1 -Saat 08:30
+```
+
+- Görev `calistir.ps1`'i çağırır; çıktı `logs/bot_YYYY-MM.log` dosyasına eklenir.
+- Bilgisayar 09:00'da kapalıysa görev açılışta çalışır; internet yoksa beklenir.
+- Site erişilemezse Telegram'a uyarı gelir, kayıtlar (`seen_jobs_<mod>.json`, yerelde, git dışı) korunur.
+- Hemen denemek: `Start-ScheduledTask -TaskName KariyerKapisiBot` · Kaldırmak:
+  `Unregister-ScheduledTask -TaskName KariyerKapisiBot -Confirm:$false`
+
+## GitHub Actions (şu an zamanlama kapalı)
 
 Settings → Secrets and variables → Actions altında şu secret'ları ekle:
 
@@ -104,7 +121,8 @@ Settings → Secrets and variables → Actions altında şu secret'ları ekle:
 | `ADAY_PROFILI` | `profil.md`'nin tüm içeriği (profil repoya girmesin diye) |
 | `DOGUM_YILI` | (isteğe bağlı) kural modunda yaş sınırı uyarısı için, ör. 1999 |
 
-Bot her gün 09:00 (TR) civarında çalışır; site/API hatasında durum dosyasına dokunmadan hata ile çıkar.
+Zamanlama, site GitHub sunucularından erişilemediği için kapalı; Türkiye'den erişimi olan bir
+self-hosted runner kurulursa workflow'daki `schedule` satırları geri açılabilir.
 
 ## Bilinen sınırlar
 

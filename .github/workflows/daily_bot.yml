@@ -1,10 +1,13 @@
 name: Kariyer Kapisi Günlük Bot
 
 on:
-  schedule:
-    # Her gün UTC saatiyle 06:00'da çalış (Türkiye saatiyle ~09:00)
-    - cron: '0 6 * * *'
-  workflow_dispatch: # Elle tetiklemek için buton ekler (Test etmek için)
+  # Zamanlama KAPALI: kariyerkapisi.gov.tr, 13 Aralık 2025'ten beri GitHub'ın barındırılan
+  # sunucularından erişilemiyor (bağlantı zaman aşımı). Bot artık yerel bilgisayarda Windows
+  # Görev Zamanlayıcı ile çalışıyor (bkz. readme.md -> "Yerel zamanlanmış çalışma").
+  # Türkiye'den erişimi olan bir self-hosted runner kurulursa aşağıdaki iki satır geri açılabilir:
+  # schedule:
+  #   - cron: '0 6 * * *'   # UTC 06:00 = TR ~09:00
+  workflow_dispatch: # Elle tetiklemek için
 
 permissions:
   contents: write # seen_jobs.json dosyasını güncellemek için YAZMA izni şart

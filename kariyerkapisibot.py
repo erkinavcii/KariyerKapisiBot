@@ -88,8 +88,13 @@ def main() -> int:
         ilanlar = kk.aktif_ilanlar()
     except KariyerKapisiHatasi as ex:
         print(f"❌ İlan listesi alınamadı: {ex}")
+        # Eski sürüm bu durumu sessizce yutuyordu; artık haber veriyoruz.
+        tg.gonder(f"⚠️ <b>Kariyer Kapısı botu siteye ulaşamadı</b>\n{e(str(ex)[:300])}\n"
+                  "Kayıtlar korunuyor; bir sonraki çalışmada tekrar denenecek.")
         return 1
     print(f"✅ Sitede {len(ilanlar)} aktif ilan, kayıtta {len(durum)} ilan var.")
+    if not ilanlar:
+        tg.gonder("⚠️ Kariyer Kapısı sitesi 0 aktif ilan döndürdü; site değişmiş olabilir, kontrol et.")
 
     if a.guid:
         yeni = [i for i in ilanlar if i["guid"] == a.guid]

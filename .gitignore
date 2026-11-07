@@ -21,3 +21,7 @@ profil.md
 # Eski sürümün yerel veritabanı
 kariyer_kapisi.db
 *.tmp
+
+# Yerel calisma: loglar ve durum dosyalari
+logs/
+seen_jobs_*.json

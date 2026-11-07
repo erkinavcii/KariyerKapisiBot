@@ -1,8 +1,9 @@
 # 🚀 Kariyer Kapısı İlan Takip ve Filtreleme Botu
 
-[kariyerkapisi.gov.tr/isealim](https://kariyerkapisi.gov.tr/isealim) ilanlarını sitenin herkese açık JSON API'sinden çeker,
-uzun ilan metinlerindeki başvuru şartlarını **Claude** ile senin profiline göre değerlendirir ve sadece
-**uygun / kontrol edilmesi gereken** ilanları **Telegram**'a gönderir.
+[kariyerkapisi.gov.tr/isealim](https://kariyerkapisi.gov.tr/isealim) ilanlarını sitenin JSON API'sinden çeker,
+uzun ilan metinlerindeki başvuru şartlarını kural tabanlı ya da bir LLM (**Claude** / **DeepSeek**) ile
+aday profiline göre değerlendirir ve sadece **uygun / kontrol edilmesi gereken** ilanları **Telegram**'a gönderir.
+Projenin tarayıcı otomasyonundan API tabanlı mimariye nasıl evrildiği için bkz. [Sürüm geçmişi](#sürüm-geçmişi).
 
 ## Akış
 
@@ -17,7 +18,7 @@ API: aktif ilanlar ──► yeni mi? (seen_jobs_<mod>.json) ──► ön filtr
 | `/ilan/GetIlanPreviewPublic` `{"ilanGuid"}` | İlanın uzun metni |
 | `/altilan/GetAltIlanInfoByIlanIdPublic` `{"ilanGuid"}` | Pozisyonlar, kontenjan, değerlendirme |
 
-Tarayıcı (Playwright) gerekmez. Eski sürüm `kariyerkapisibot_legacy.py` içinde duruyor.
+Tarayıcı (Playwright) gerekmez. Önceki Playwright sürümleri için bkz. [Sürüm geçmişi](#sürüm-geçmişi).
 
 ## Modlar
 
@@ -130,3 +131,36 @@ self-hosted runner kurulursa workflow'daki `schedule` satırları geri açılabi
   gönderilmez; her mesajda "📎 PDF ek şartname/tablo var" satırı ve linkleri bulunur, LLM modu da bu
   durumda "🟡 KONTROL ET" der.
 - "Duyuru" tipindeki ilanların sitede metni yok (sadece dış link); bunlar başlıktan değerlendirilir.
+
+## Sürüm geçmişi
+
+### v1 — Playwright + SQLite (Kasım 2025)
+[`kariyerkapisibot_legacy.py`](kariyerkapisibot_legacy.py) · commit [`62a44be`](https://github.com/erkinavcii/KariyerKapisiBot/commit/62a44be)
+
+- Headless Chromium (Playwright) ile JavaScript'le yüklenen ilan listesini tarayan ilk sürüm.
+- Görülen ilanlar yerel bir SQLite veritabanında (`jobs` tablosu, ilk görülme zamanı) tutulur, yeni
+  ilanlar Telegram'a bildirilir.
+- Repoda portföy amacıyla duruyor; bağımlılıkları (`playwright`) artık `requirements.txt` içinde değil.
+
+### v2 — Playwright + GitHub Actions (Kasım 2025)
+[kaynak kod (`93d4e19`)](https://github.com/erkinavcii/KariyerKapisiBot/blob/93d4e19/kariyerkapisibot.py)
+
+- Sunucusuz çalışma: GitHub Actions her sabah botu çalıştırır, durum `active_jobs.json` olarak repoya
+  commit'lenir ("git scraping").
+- Açılış popup'larını kapatma, `domcontentloaded` ile zaman aşımlarını azaltma, satır metninden kurum ve
+  başlık ayrıştırma.
+- Hata durumunda listeyi boşaltan bir "risk modu" vardı (ilan kaçırmamak için mükerrer gönderimi göze alır).
+
+### v3 — JSON API, kural / LLM filtreleme (Kasım 2026)
+commit [`60b38cc`](https://github.com/erkinavcii/KariyerKapisiBot/commit/60b38cc) ve sonrası
+
+- **Keşif:** Sitenin JavaScript'i incelenerek ilanların geldiği herkese açık JSON uçları bulundu; tarayıcı
+  tamamen kaldırıldı (Chromium kurulumu, popup kapatma ve sabit 10 sn beklemeler ortadan kalktı).
+- **Filtreleme:** Üç mod: filtresiz, kural tabanlı (anahtar kelime, yaş sınırı, yabancı dil puan şartı,
+  KPSS puan türü) ve LLM ile profile göre uygunluk (yapılandırılmış JSON çıktı, Claude veya DeepSeek).
+- **Maliyet:** 27 gerçek ilan üzerinde token ölçümü; tekrar eden metin ve standart "genel şartlar"
+  ayıklanarak girdi küçültüldü, ilan başına ~$0.001; çalışma başına ilan ve dolar sınırı.
+- **Teşhis:** v2'nin 13 Aralık 2025'ten beri sessizce 0 ilan bulduğu fark edildi. 40 farklı test
+  noktasından yapılan bağlantı testinde API'ye yalnızca Türkiye'den erişilebildiği (coğrafi engel)
+  doğrulandı; bot Windows Görev Zamanlayıcı ile yerel çalışmaya taşındı ve erişim sorunlarında artık
+  Telegram'a uyarı gönderiyor.
